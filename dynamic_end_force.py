@@ -46,8 +46,9 @@ class EndpointForcesFeedback(NoForces):
     def apply_forces(
         self, system: "RodType | RigidBodyType", time: np.float64 = np.float64(0.0)
     ) -> None:
-        self.compute_end_point_forces(
+        self.compute_end_point_force(
             system.external_forces,
+            system.velocity_collection,
             self.kp,
             time,
             self.ramp_up_time,
@@ -57,10 +58,10 @@ class EndpointForcesFeedback(NoForces):
 
     @staticmethod
     @njit(cache=True)  # type: ignore
-    def compute_end_point_forces(
+    def compute_end_point_force(
         external_forces: NDArray[np.float64],
-        start_force: NDArray[np.float64],
-        end_force: NDArray[np.float64],
+        velocity_collection: NDArray[np.float64],
+        force: np.float64,
         time: np.float64,
         ramp_up_time: np.float64,
     ) -> None:
@@ -82,5 +83,4 @@ class EndpointForcesFeedback(NoForces):
 
         """
         factor = min(1.0, float(time / ramp_up_time))
-        external_forces[..., 0] += start_force * factor
-        external_forces[..., -1] += end_force * factor
+        external_forces[..., -1] += force * factor
