@@ -46,7 +46,7 @@ shear_modulus = E / (poisson_ratio + 1.0)
 
 origin = np.zeros((3,))
 point_1 = np.array([-300.0, 0.0, 0.0]) * mm
-point_2 = np.array([0.0, 50.0, 0.0]) * mm # connection point
+point_2 = np.array([0.0, 150.0, 0.0]) * mm # connection point
 point_3 = np.array([300.0, 0.0, 0.0]) * mm
 
 n_node = n_elem + 1
@@ -64,7 +64,7 @@ normal = np.array([0.0, 0.0, 1.0])
 
 hinge_axis = np.array([0.0, 0.0, 1.0])
 
-F = np.array([0.0, -1, 0.0])
+F = np.array([0.0, -20, 0.0])
 
 rod_1 = ea.CosseratRod.straight_rod(
     n_elem,
@@ -106,18 +106,18 @@ switch_sim.dampen(rod_2).using(
 )
 
 switch_sim.add_forcing_to(rod_1).using(
-    ea.EndpointForces, start_force=np.zeros(3), end_force=F, ramp_up_time=0.2
+    ea.EndpointForces, start_force=np.zeros(3), end_force=F, ramp_up_time=7
 )
 
 switch_sim.constrain(rod_1).using(
-    ea.OneEndFixedBC,
+    ea.FixedConstraint,
     constrained_position_idx=(0,),
-    constrained_director_idx=(0,),
+    constrained_director_idx=(0,-1),
 )
 switch_sim.constrain(rod_2).using(
-    ea.OneEndFixedBC,
+    ea.FixedConstraint,
     constrained_position_idx=(0,),
-    constrained_director_idx=(0,),
+    constrained_director_idx=(0,-1),
 )
 
 switch_sim.connect(
