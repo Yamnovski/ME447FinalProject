@@ -64,7 +64,7 @@ normal = np.array([0.0, 0.0, 1.0])
 
 hinge_axis = np.array([0.0, 0.0, 1.0])
 
-F = np.array([0.0, -0.2, 0.0])
+F = np.array([0.0, -1, 0.0])
 
 rod_1 = ea.CosseratRod.straight_rod(
     n_elem,
@@ -106,7 +106,7 @@ switch_sim.dampen(rod_2).using(
 )
 
 switch_sim.add_forcing_to(rod_1).using(
-    ea.EndpointForces, start_force=np.zeros(3), end_force=F, ramp_up_time=1
+    ea.EndpointForces, start_force=np.zeros(3), end_force=F, ramp_up_time=0.2
 )
 
 switch_sim.constrain(rod_1).using(
@@ -163,7 +163,6 @@ timestepper: ea.typing.StepperProtocol = ea.PositionVerlet()
 ea.integrate(timestepper, switch_sim, final_time, total_steps)
 
 position = np.array(recorded_history_2["position"])
-print(position[-1])
 
 plot_video(
         recorded_history_1,

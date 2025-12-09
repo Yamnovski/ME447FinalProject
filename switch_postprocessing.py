@@ -52,3 +52,15 @@ def plot_video(
             plt.ylabel("y (" + unit + ")")
 
             writer.grab_frame()
+
+# def plot_end_position_vs_time(
+#     plot_params_rod1: dict,
+#     ylim: list,
+#     tlim: list,
+#     unit="m",
+#     plot_name="plot_end_pos_time.png",
+#     fps=15,
+# ):
+#     import matplotlib.pyplot as plt
+
+#     position_of_rod1[time, 0], 
