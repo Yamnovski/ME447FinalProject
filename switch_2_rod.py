@@ -4,8 +4,13 @@ import vapory as vp
 import elastica as ea
 from collections import defaultdict
 from switch_postprocessing import (
-    plot_video
+    plot_video,
+    plot_end_position_vs_time,
+    plot_end_velocity_vs_time,
+    plot_end_acceleration_vs_time,
+    plot_force_vs_displacement,
 )
+from dynamic_end_force import EndpointForcesFeedback
 
 # np.set_printoptions(precision=5, suppress=True, threshold=6) # TODO
 np.set_printoptions(precision=5, suppress=False, threshold=np.inf) # TODO
@@ -22,7 +27,7 @@ mm = 0.001
 
 
 # simulation parameters
-final_time = 5
+final_time = 10
 damping_constant = 0.1
 time_step = 1e-4
 total_steps = int(final_time / time_step)
@@ -44,9 +49,11 @@ E = 0.6e6 # Pa (TPU plastic)
 poisson_ratio = 0.5
 shear_modulus = E / (poisson_ratio + 1.0)
 
+initial_height = 100.0 * mm
+
 origin = np.zeros((3,))
 point_1 = np.array([-300.0, 0.0, 0.0]) * mm
-point_2 = np.array([0.0, 150.0, 0.0]) * mm # connection point
+point_2 = np.array([0.0, initial_height, 0.0]) # connection point
 point_3 = np.array([300.0, 0.0, 0.0]) * mm
 
 n_node = n_elem + 1
@@ -63,8 +70,6 @@ direction_2 = (point_2 - point_3) / np.linalg.norm(point_2 - point_3)
 normal = np.array([0.0, 0.0, 1.0])
 
 hinge_axis = np.array([0.0, 0.0, 1.0])
-
-F = np.array([0.0, -20, 0.0])
 
 rod_1 = ea.CosseratRod.straight_rod(
     n_elem,
@@ -106,7 +111,7 @@ switch_sim.dampen(rod_2).using(
 )
 
 switch_sim.add_forcing_to(rod_1).using(
-    ea.EndpointForces, start_force=np.zeros(3), end_force=F, ramp_up_time=7
+    EndpointForcesFeedback, velocity_target=np.array([0.0, -0.02, 0.0]), ramp_up_time=0.1, time_step=time_step
 )
 
 switch_sim.constrain(rod_1).using(
@@ -145,6 +150,9 @@ class SwitchCallBack(ea.CallBackBaseClass):
             self.callback_params["time"].append(time)
             self.callback_params["step"].append(current_step)
             self.callback_params["position"].append(system.position_collection.copy())
+            self.callback_params["velocity"].append(system.velocity_collection.copy())
+            self.callback_params["acceleration"].append(system.acceleration_collection.copy())
+            self.callback_params["force"].append(system.external_forces.copy())
 
             return
 
@@ -162,14 +170,37 @@ switch_sim.finalize()
 timestepper: ea.typing.StepperProtocol = ea.PositionVerlet()
 ea.integrate(timestepper, switch_sim, final_time, total_steps)
 
-position = np.array(recorded_history_2["position"])
+
+plot_end_position_vs_time(
+    recorded_history_1,
+    ylim=ylim,
+    tlim=[0,final_time+1],
+)
+
+plot_end_velocity_vs_time(
+    recorded_history_1,
+    tlim=[0,final_time+1],
+)
+
+plot_end_acceleration_vs_time(
+    recorded_history_1,
+    tlim=[0,final_time+1],
+)
+
+plot_force_vs_displacement(
+    recorded_history_1,
+    ylim=ylim,
+    ref_y=initial_height,
+)
 
 plot_video(
-        recorded_history_1,
-        recorded_history_2,
-        video_name="switch.mp4",
-        fps=rendering_fps,
-        unit=plot_units,
-        xlim=xlim,
-        ylim=ylim,
-    )
+    recorded_history_1,
+    recorded_history_2,
+    video_name="switch.mp4",
+    fps=rendering_fps,
+    unit=plot_units,
+    xlim=xlim,
+    ylim=ylim,
+)
+
+# print(recorded_history_1["force"][-1])
