@@ -55,17 +55,17 @@ E = 5e5 # Pa
 poisson_ratio = 0.5
 shear_modulus = E / (poisson_ratio + 1.0)
 
-initial_height = 10.0 * mm # optimize this
+initial_height = 10.0 * mm # TODO optimize this
 max_displacement = 14.0 * mm
 
 third_rod = True
 orientation_boundary_condition = False
 
 origin = np.zeros((3,))
-point_1 = np.array([-50.0, 0.0, 0.0]) * mm # TODO optimize this
+point_1 = np.array([-50.0, 0.0, 0.0]) * mm # TODO optimize this (x and y only)
 point_2 = np.array([0.0, initial_height, 0.0])
-point_3 = np.array([50.0, 0.0, 0.0]) * mm # TODO optimize this
-point_4 = np.array([-70.0, -8.0, 0.0]) * mm # TODO optimize this
+point_3 = np.array([50.0, 0.0, 0.0]) * mm # TODO optimize this (x and y only)
+point_4 = np.array([-70.0, -8.0, 0.0]) * mm # TODO optimize this (x and y only)
 
 n_node = n_elem + 1
 
