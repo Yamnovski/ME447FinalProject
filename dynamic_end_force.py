@@ -25,33 +25,46 @@ class EndpointForcesFeedback(NoForces):
         velocity_target: NDArray[np.float64],
         ramp_up_time: float,
         time_step: float,
+        step_skip: float,
+        force_measure: NDArray[np.float64],
+        preload_force: NDArray[np.float64],
+        kp = 40,
+        ki = 4000.0,
     ) -> None:
         
         super(EndpointForcesFeedback, self).__init__()
         self.velocity_target = velocity_target
         assert ramp_up_time > 0.0
         self.ramp_up_time = np.float64(ramp_up_time)
+        self.force_measure = force_measure[...]
+        self.preload_force = preload_force
+        self.step_skip = step_skip
+        self.kp = kp
+        self.ki = ki
 
         self.factor = 0.0
         self.error = np.zeros(3, dtype=np.float64)
-        self.error_integrator = np.zeros(3, dtype=np.float64)
+        self.error_integrator = self.preload_force / self.ki # start with preload force
 
         self.time_step = time_step
 
     def apply_forces(
         self, system: "RodType | RigidBodyType", time: np.float64 = np.float64(0.0)
     ) -> None:
-        self.factor = min(1.0, float(time / self.ramp_up_time))
-        self.error = (self.velocity_target - system.velocity_collection[..., -1]) * self.factor
-        self.error_integrator += self.error * self.time_step
+        index = int(np.floor(time/self.time_step/self.step_skip)) # index for force_measure "callback"
 
-        self.compute_end_point_force(
+        self.force_measure[index] = self.compute_end_point_force(
             system.external_forces,
             time,
+            self.time_step,
             self.ramp_up_time,
-            self.error,
+            self.velocity_target,
+            system.velocity_collection[..., -1],
             self.error_integrator,
-        )
+            self.kp,
+            self.ki,
+        )[1]
+        
 
 
 
@@ -60,30 +73,24 @@ class EndpointForcesFeedback(NoForces):
     def compute_end_point_force(
         external_forces: NDArray[np.float64],
         time: np.float64,
+        time_step: np.float64,
         ramp_up_time: np.float64,
-        error: NDArray[np.float64],
+        velocity_target: NDArray[np.float64],
+        current_velocity: NDArray[np.float64],
         error_integrator: NDArray[np.float64],
+        kp: np.float64,
+        ki: np.float64,
     ) -> None:
-        """
-        Compute end point forces that are applied on the rod using numba njit decorator.
+        
+        factor = min(1.0, float(time / ramp_up_time))
+        error = (velocity_target - current_velocity) * factor
+        error_integrator += error * time_step
 
-        Parameters
-        ----------
-        external_forces: numpy.ndarray
-            2D (dim, blocksize) array containing data with 'float' type. External force vector.
-        start_force: numpy.ndarray
-            1D (dim) array containing data with 'float' type.
-        end_force: numpy.ndarray
-            1D (dim) array containing data with 'float' type.
-            Force applied to last node of the system.
-        time: float
-        ramp_up_time: float
-            Applied forces are ramped up until ramp up time.
-
-        """
-        kp = 0.2
-        ki = 4000.0
-
-        force = kp * error + ki * error_integrator
+        force = kp * error + ki * error_integrator # proportional-integral controller maintains small, near-constant velocity
+        force[0] = 0.0
+        force[2] = 0.0
 
         external_forces[..., -1] += force
+
+        return force
+        
