@@ -25,7 +25,7 @@ def run_sim(radius, height, x1, y1, x3, y3, x4, y4, do_plots=False,):
     preload_sim = SwitchSimulator()
     switch_sim = SwitchSimulator()
     mm = 0.001
-    if (radius <= 0 or height <= 0): # To prevent CMA from taking a negative radius or height for some reason as the guess
+    if (radius <= 0 or height <= 0): # ? To prevent CMA from taking a negative radius or height for some reason as the guess
         return 999999999999999
 
 
@@ -290,10 +290,7 @@ def run_sim(radius, height, x1, y1, x3, y3, x4, y4, do_plots=False,):
             ylim=ylim,
         )
 
-    simulated_disp = recorded_history_1["position"][:, 1]
-    simulated_force = recorded_history_1["force_measure"]
-
-    score = fitness(simulated_disp, simulated_force)
+    score = fitness(recorded_history_1, ref_y=initial_height)
 
     return score
 
