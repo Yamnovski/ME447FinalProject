@@ -21,13 +21,10 @@ class SwitchSimulator(
 ):
     pass
 
-def run_sim(radius, height, x1, y1, x3, y3, x4, y4, do_plots=False,):
+def run_sim(r1, r2, r3, x1, y1, x3, y3, x4, y4, do_plots=False,):
     preload_sim = SwitchSimulator()
     switch_sim = SwitchSimulator()
     mm = 0.001
-    if (radius <= 0 or height <= 0): # ? To prevent CMA from taking a negative radius or height for some reason as the guess
-        return 999999999999999
-
 
     # simulation parameters
     preload_time = 3
@@ -35,7 +32,7 @@ def run_sim(radius, height, x1, y1, x3, y3, x4, y4, do_plots=False,):
     preload_time_step = 1e-4
     preload_steps = int(preload_time / preload_time_step)
 
-    final_time = 15
+    final_time = 25
     damping_constant = 0.2
     time_step = 1e-4
     total_steps = int(final_time / time_step)
@@ -51,8 +48,10 @@ def run_sim(radius, height, x1, y1, x3, y3, x4, y4, do_plots=False,):
     plot_target_force_disp = True
 
     # rod parameters
-    base_radius = radius * mm # TODO optimize this
-    initial_height = height * mm # TODO optimize this
+    radius_1 = np.abs(r1) * mm # TODO optimize this
+    radius_2 = np.abs(r2) * mm # TODO optimize this
+    radius_3 = np.abs(r3) * mm # TODO optimize this
+    initial_height = 0.0 * mm
 
     origin = np.zeros((3,))
     point_1 = np.array([x1, y1, 0.0]) * mm # TODO optimize this (x and y only)
@@ -60,7 +59,6 @@ def run_sim(radius, height, x1, y1, x3, y3, x4, y4, do_plots=False,):
     point_3 = np.array([x3, y3, 0.0]) * mm # TODO optimize this (x and y only)
     point_4 = np.array([x4, y4, 0.0]) * mm # TODO optimize this (x and y only)
 
-    base_area = np.pi * (base_radius**2)
     density = 80000 # kg/m^3
     E = 5e5 # Pa
     poisson_ratio = 0.5
@@ -94,7 +92,7 @@ def run_sim(radius, height, x1, y1, x3, y3, x4, y4, do_plots=False,):
         direction_1,
         normal,
         length_1,
-        base_radius,
+        radius_1,
         density,
         youngs_modulus=E,
         shear_modulus=shear_modulus,
@@ -105,7 +103,7 @@ def run_sim(radius, height, x1, y1, x3, y3, x4, y4, do_plots=False,):
         direction_2,
         normal,
         length_2,
-        base_radius,
+        radius_2,
         density,
         youngs_modulus=E,
         shear_modulus=shear_modulus,
@@ -116,7 +114,7 @@ def run_sim(radius, height, x1, y1, x3, y3, x4, y4, do_plots=False,):
         direction_3,
         normal,
         length_3,
-        base_radius,
+        radius_3,
         density,
         youngs_modulus=E,
         shear_modulus=shear_modulus,
@@ -173,8 +171,11 @@ def run_sim(radius, height, x1, y1, x3, y3, x4, y4, do_plots=False,):
 
     preload_sim.finalize()
     timestepper: ea.typing.StepperProtocol = ea.PositionVerlet()
-    time = ea.integrate(timestepper, preload_sim, preload_time, preload_steps)
-    ea.save_state(preload_sim, "save_states/", time, True)
+    time = ea.integrate(timestepper, preload_sim, preload_time, preload_steps, progress_bar=False)
+    ea.save_state(preload_sim, "save_states/", time)
+
+    if (np.isnan(preload_history["position"]).any()): # catch a simulation that blew up before running the slow simulation
+        return 999999999999999
 
     plot_preload(
         preload_history,
@@ -235,7 +236,7 @@ def run_sim(radius, height, x1, y1, x3, y3, x4, y4, do_plots=False,):
         ramp_up_time=0.5, time_step=time_step, force_measure=force_measure[...], preload_force=preload_force
     )
 
-    ea.load_state(switch_sim, "save_states/", True)
+    ea.load_state(switch_sim, "save_states/")
 
     recorded_history_1: dict[str, list] = defaultdict(list)
     recorded_history_2: dict[str, list] = defaultdict(list)
@@ -272,13 +273,6 @@ def run_sim(radius, height, x1, y1, x3, y3, x4, y4, do_plots=False,):
             recorded_history_1,
             tlim=[0,final_time+1],
         )
-        plot_force_vs_displacement(
-            recorded_history_1,
-            ylim=[0,max_displacement],
-            ref_y=initial_height,
-            unit="mm",
-            show_target=plot_target_force_disp,
-        )
         plot_video(
             recorded_history_1,
             recorded_history_2,
@@ -289,6 +283,14 @@ def run_sim(radius, height, x1, y1, x3, y3, x4, y4, do_plots=False,):
             xlim=xlim,
             ylim=ylim,
         )
+
+    plot_force_vs_displacement(
+        recorded_history_1,
+        ylim=[0,max_displacement],
+        ref_y=initial_height,
+        unit="mm",
+        show_target=plot_target_force_disp,
+    )
 
     score = fitness(recorded_history_1, ref_y=initial_height)
 

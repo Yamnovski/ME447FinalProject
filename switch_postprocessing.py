@@ -1,6 +1,7 @@
 import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.colors import to_rgb
+from math import isnan
 
 
 def target_force(displacement):
@@ -221,7 +222,7 @@ def plot_force_vs_displacement(
     plt.xlabel("key displacement (" + unit + ")")
     plt.ylabel("force (N)")
     if (show_target):
-        plt.legend(["current (fitness: " + str(fitness(plot_params_rod1, ref_y)) + ")", "target"])
+        plt.legend(["current (fitness: " + "{:.4E}".format(fitness(plot_params_rod1, ref_y)) + ")", "target"])
         # plt.legend(["current", "target"])
     plt.savefig(plot_name, bbox_inches='tight')
     # plt.show()
@@ -241,4 +242,8 @@ def fitness(
     dx = displacement[1:] - displacement[:-1]
     error = 0.5 * (np.abs(force - target_force(displacement))[1:] + np.abs(force - target_force(displacement))[:-1])
 
-    return np.sum(error * dx)
+    score = np.sum(error * dx)
+
+    if (isnan(score)): # if simulation blew up
+        score = 999999999999999
+    return score
