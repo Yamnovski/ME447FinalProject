@@ -3,6 +3,7 @@ import cma
 import matplotlib.pyplot as plt
 
 from switch_sim import run_sim
+from switch_sim_buckling import run_sim as run_sim_buckling
 from concurrent.futures import ProcessPoolExecutor
 
 import os
@@ -14,7 +15,7 @@ MAIN_DIR = os.getcwd()
 orientation_boundary_condition = True
 
 def objective(x):
-    r1, r2, r3, p1x, p1y, p3x, p3y, p4x, p4y = x
+    r1, r2, r3, rod_4_stiff, preload, p1x, p1y, p3x, p3y, p4x, p4y = x
     
     worker_dir = tempfile.mkdtemp(prefix="worker_") # create a temp folder for each process/worker
     data_file = os.path.join(MAIN_DIR, "target_force_data.csv") 
@@ -22,15 +23,16 @@ def objective(x):
     os.chdir(worker_dir) # change the working directory for the rest of the objective function call to the temp folder
 
     try:
-        score = run_sim(r1, r2, r3, p1x, p1y, p3x, p3y, p4x, p4y, orientation_boundary_condition, False)
+        score = run_sim_buckling(r1, r2, r3, rod_4_stiff, preload, 
+                        p1x, p1y, p3x, p3y, p4x, p4y, orientation_boundary_condition, False)
     except Exception as e:
         score = 999999999999999
         print(e)
     return score
 
 
-x0 = np.array([4.94772, 5.24589, 5.05957, -67.0155, -0.233837, 54.0787, -30.9179, -73.6563, -0.0556065])
-sigma0 = 3.0
+x0 = np.array([5.95077, 5.43655, 9.37571, 8.0, 4.0, -54.17448, -5.82995, 54.31005, -21.82463, -77.13239, -15.56851])
+sigma0 = 2.0
 popsize = 10
 es = cma.CMAEvolutionStrategy(x0, sigma0, {"popsize":popsize, "maxiter":40})
 num_cores = os.cpu_count()  # e.g., 8

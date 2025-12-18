@@ -15,6 +15,7 @@ def plot_video(
     plot_params_rod1: dict,
     plot_params_rod2: dict,
     plot_params_rod3: dict,
+    plot_params_rod4: dict,
     xlim: list,
     ylim: list,
     unit="m",
@@ -38,6 +39,12 @@ def plot_video(
         third_rod = True
     else: 
         third_rod = False
+    
+    if (len(plot_params_rod4) != 0):
+        position_of_rod4 = np.array(plot_params_rod4["position"]) / unit_scaling
+        fourth_rod = True
+    else: 
+        fourth_rod = False
 
     print("plot video xy")
     FFMpegWriter = manimation.writers["ffmpeg"]
@@ -65,6 +72,12 @@ def plot_video(
                 position_of_rod3[time, 1],
                 c=to_rgb("xkcd:green"),
                 label="rod3",
+            )
+            if (fourth_rod): plt.plot(
+                position_of_rod4[time, 0],
+                position_of_rod4[time, 1],
+                c=to_rgb("xkcd:black"),
+                label="rod4",
             )
 
             plt.xlim(xlim / unit_scaling)

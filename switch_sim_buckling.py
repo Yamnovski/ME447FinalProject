@@ -23,7 +23,7 @@ class SwitchSimulator(
 ):
     pass
 
-def run_sim(r1, r2, r3, x1, y1, x3, y3, x4, y4, orientation_boundary_condition, do_plots=False,):
+def run_sim(r1, r2, r3, rod_4_stiff, preload, x1, y1, x3, y3, x4, y4, orientation_boundary_condition, do_plots=False,):
 
     preload_sim = SwitchSimulator()
     switch_sim = SwitchSimulator()
@@ -54,7 +54,7 @@ def run_sim(r1, r2, r3, x1, y1, x3, y3, x4, y4, orientation_boundary_condition, 
     radius_1 = np.abs(r1) * mm # TODO optimize this
     radius_2 = np.abs(r2) * mm # TODO optimize this
     radius_3 = np.abs(r3) * mm # TODO optimize this
-    radius_4 = 3.5 * mm
+    radius_4 = 3.3 * mm # TODO optimize this
     initial_height = 0.0 * mm
 
     origin = np.zeros((3,))
@@ -63,7 +63,7 @@ def run_sim(r1, r2, r3, x1, y1, x3, y3, x4, y4, orientation_boundary_condition, 
     point_3 = np.array([x3, y3, 0.0]) * mm # TODO optimize this (x and y only)
     point_4 = np.array([x4, y4, 0.0]) * mm # TODO optimize this (x and y only)
 
-    point_5 = np.array([-20.0, -40.0, 0.0]) * mm
+    point_5 = np.array([0.0, -37.0, 0.0]) * mm # this only affects the visual indication of where the buckle rod is
 
     density = 80000 # kg/m^3 
     # ^ this is not physically accurate, but it shouldn't matter much for quasi-static simulation, and it prevents blowing up
@@ -73,21 +73,21 @@ def run_sim(r1, r2, r3, x1, y1, x3, y3, x4, y4, orientation_boundary_condition, 
     shear_modulus = E / (poisson_ratio + 1.0)
 
     max_displacement = 14.0 * mm
+    contact_start_displacement = 0.0 * mm
+    rod_4_stiffness_factor = rod_4_stiff / 100 # TODO optimize this (100 factor is simple initial sigma adjustment for CMA)
 
     third_rod = True
-    fourth_rod = False
+    fourth_rod = True
 
     n_node = n_elem + 1
 
     velocity_target=np.array([0.0, -max_displacement/final_time, 0.0])
-    preload_force = np.array([0.0, -0.5, 0.0])
-
-    # leverage = 0.25
+    preload_force = np.array([0.0, -np.clip(preload / 10, min=0.2, max=0.5), 0.0]) # sigma adjustment factor for preload
 
     length_1 = np.linalg.norm(point_2 - point_1)
     length_2 = np.linalg.norm(point_2 - point_3)
     length_3 = np.linalg.norm(point_2 - point_4)
-    length_4 = 30.0 * mm
+    length_4 = 31.0 * mm 
 
     # initial directors
     direction_1 = (point_2 - point_1) / np.linalg.norm(point_2 - point_1)
@@ -271,14 +271,27 @@ def run_sim(r1, r2, r3, x1, y1, x3, y3, x4, y4, orientation_boundary_condition, 
         ea.HingeJoint, k=1e5, nu=0, kt=1e1, normal_direction=hinge_axis
     )
 
+    force_measure = np.zeros(int(total_steps/step_skip)+1) 
+    force_measure_2 = np.zeros(int(total_steps/step_skip)+1) 
+    buckle_force = np.zeros(3, dtype=np.float64)
+
     # system.external_forces[] is our applied force + all the forces associated with joints, 
     # so we can't use it for our force measure! (we want applied force only)
     # we need this list instead, which gets modified by the EndpointForcesFeedback class
     # we also cannot use a callback, since force_measure is not a variable in the RodType class
-    force_measure = np.zeros(int(total_steps/step_skip)+1) 
+    
+    if (fourth_rod): switch_sim.add_forcing_to(rod_4).using(
+        EndpointForcesFeedback, type="buckle", velocity_target=velocity_target, step_skip=step_skip,
+        ramp_up_time=0.5, time_step=time_step, force_measure=force_measure_2.view(), preload_force=np.zeros(3),
+        get_buckle_force=buckle_force.view(), time_delay=final_time * contact_start_displacement / max_displacement,
+    )
+    if (fourth_rod): switch_sim.add_forcing_to(rod_4).using(
+        ea.UniformForces, force=0.5, direction=np.array([1.0, 0.0, 0.0]))
+
     switch_sim.add_forcing_to(rod_1).using(
-        EndpointForcesFeedback, velocity_target=velocity_target, step_skip=step_skip,
-        ramp_up_time=0.5, time_step=time_step, force_measure=force_measure[...], preload_force=preload_force
+        EndpointForcesFeedback, type="main", velocity_target=velocity_target, step_skip=step_skip,
+        ramp_up_time=0.5, time_step=time_step, force_measure=force_measure.view(), preload_force=preload_force, 
+        get_buckle_force=buckle_force.view(), buckle_stiffness_factor=rod_4_stiffness_factor,
     )
 
 
@@ -306,19 +319,12 @@ def run_sim(r1, r2, r3, x1, y1, x3, y3, x4, y4, orientation_boundary_condition, 
     # switch_sim.add_forcing_to(rod_4).using(
     #     ea.EndpointForces, 0.0 * direction_4, np.array([0.0, -buckling_force, 0.0]), ramp_up_time=0.2)
 
-    force_measure_2 = np.zeros(int(total_steps/step_skip)+1) 
-    if (fourth_rod): switch_sim.add_forcing_to(rod_4).using(
-        EndpointForcesFeedback, velocity_target=velocity_target, step_skip=step_skip,
-        ramp_up_time=0.5, time_step=time_step, force_measure=force_measure_2[...], preload_force=np.zeros(3)
-    )
-    if (fourth_rod): switch_sim.add_forcing_to(rod_4).using(
-        ea.UniformForces, force=0.08, direction=np.array([1.0, 0.0, 0.0]))
 
     switch_sim.finalize()
     ea.integrate(timestepper, switch_sim, final_time, total_steps)
 
     force_measure[-1] = force_measure[-2]
-    recorded_history_1["force_measure"] = force_measure
+    if (fourth_rod): recorded_history_1["force_measure"] = force_measure
 
     force_measure_2[-1] = force_measure_2[-2]
     if (fourth_rod): recorded_history_4["force_measure"] = force_measure_2
