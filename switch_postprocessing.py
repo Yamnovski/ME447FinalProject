@@ -194,6 +194,7 @@ def plot_force_vs_displacement(
     unit="m",
     plot_name="plot_force_disp.png",
     show_target=True,
+    show_diff=False,
 ):
     if(unit=="mm"):
         unit_scaling = 0.001 # plot in mm
@@ -217,12 +218,17 @@ def plot_force_vs_displacement(
             target_force((displacement - displacement[0]) * unit_scaling),
             linestyle="--",
         )
-    
+    if (show_diff):
+        plt.plot(
+            displacement, 
+            target_force((displacement - displacement[0]) * unit_scaling) - force,
+            linestyle="--",
+        )
     # plt.xlim(0, (ylim[1] - ylim[0]) / unit_scaling)
     plt.xlabel("key displacement (" + unit + ")")
     plt.ylabel("force (N)")
     if (show_target):
-        plt.legend(["current (fitness: " + "{:.4E}".format(fitness(plot_params_rod1, ref_y)) + ")", "target"])
+        plt.legend(["current (fitness: " + "{:.4E}".format(fitness(plot_params_rod1, ref_y)) + ")", "target", "difference"])
         # plt.legend(["current", "target"])
     plt.savefig(plot_name, bbox_inches='tight')
     # plt.show()

@@ -1,25 +1,71 @@
 import numpy as np
 import cma
+import matplotlib.pyplot as plt
 
-from switch_2_rod import run_sim
+from switch_sim import run_sim
+from concurrent.futures import ProcessPoolExecutor
+
+import os
+import tempfile
+import shutil
+
+MAIN_DIR = os.getcwd() 
+
+orientation_boundary_condition = True
 
 def objective(x):
     r1, r2, r3, p1x, p1y, p3x, p3y, p4x, p4y = x
     
-    score = run_sim(r1, r2, r3, p1x, p1y, p3x, p3y, p4x, p4y, False)
+    worker_dir = tempfile.mkdtemp(prefix="worker_") # create a temp folder for each process/worker
+    data_file = os.path.join(MAIN_DIR, "target_force_data.csv") 
+    shutil.copy(data_file, worker_dir) # copy the target_force_data.csv file into each folder
+    os.chdir(worker_dir) # change the working directory for the rest of the objective function call to the temp folder
+
+    try:
+        score = run_sim(r1, r2, r3, p1x, p1y, p3x, p3y, p4x, p4y, orientation_boundary_condition, False)
+    except Exception as e:
+        score = 999999999999999
+        print(e)
     return score
 
-x0 = np.array([6.0, 6.0, 6.0, -50.0, -10.0, 50.0, -10.0, -70.0, -18.0])
+
+x0 = np.array([4.94772, 5.24589, 5.05957, -67.0155, -0.233837, 54.0787, -30.9179, -73.6563, -0.0556065])
 sigma0 = 3.0
-es = cma.CMAEvolutionStrategy(x0, sigma0, {"popsize":10, "maxiter":5})
+popsize = 10
+es = cma.CMAEvolutionStrategy(x0, sigma0, {"popsize":popsize, "maxiter":40})
+num_cores = os.cpu_count()  # e.g., 8
+num_processes = min(popsize, num_cores)
+
+best_fitness_arr = []
+best_soln_arr = []
 
 
 while not es.stop():
     X = es.ask()
-    F = [objective(x) for x in X]
+    # F = [objective(x) for x in X]
+
+    with ProcessPoolExecutor(max_workers=num_processes) as executor:
+        # F = list(executor.map(objective, X))
+        F = list(executor.map(objective, X))
+    
     es.tell(X, F)
     es.disp()
 
     best = es.result.xbest
     print("best x:", best)
     print("best fitness:", es.result.fbest)
+    best_fitness_arr.append(es.result.fbest)
+    best_soln_arr.append(best)
+
+    fig = plt.figure()
+    plt.plot(best_fitness_arr)
+    plt.title("Fitness")
+    plt.xlabel("Iterations")
+    plt.ylabel("Fitness")
+    # plt.legend("Best solution: " + " ".join(str(param) for param in best))
+    plt.savefig("plot_fitness.png", bbox_inches='tight')
+    # plt.show()
+    plt.close(fig)
+
+
+

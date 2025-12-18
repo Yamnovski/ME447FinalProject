@@ -1,6 +1,7 @@
 import numpy as np
 from matplotlib import pyplot as plt
 import vapory as vp
+import os
 import elastica as ea
 from collections import defaultdict
 from switch_postprocessing import (
@@ -21,7 +22,8 @@ class SwitchSimulator(
 ):
     pass
 
-def run_sim(r1, r2, r3, x1, y1, x3, y3, x4, y4, do_plots=False,):
+def run_sim(r1, r2, r3, x1, y1, x3, y3, x4, y4, orientation_boundary_condition, do_plots=False,):
+
     preload_sim = SwitchSimulator()
     switch_sim = SwitchSimulator()
     mm = 0.001
@@ -51,6 +53,7 @@ def run_sim(r1, r2, r3, x1, y1, x3, y3, x4, y4, do_plots=False,):
     radius_1 = np.abs(r1) * mm # TODO optimize this
     radius_2 = np.abs(r2) * mm # TODO optimize this
     radius_3 = np.abs(r3) * mm # TODO optimize this
+    radius_4 = radius_3
     initial_height = 0.0 * mm
 
     origin = np.zeros((3,))
@@ -67,21 +70,25 @@ def run_sim(r1, r2, r3, x1, y1, x3, y3, x4, y4, do_plots=False,):
     max_displacement = 14.0 * mm
 
     third_rod = True
-    orientation_boundary_condition = False
+    fourth_rod = False
 
     n_node = n_elem + 1
 
     velocity_target=np.array([0.0, -max_displacement/final_time, 0.0])
     preload_force = np.array([0.0, -0.5, 0.0])
 
+    leverage = 0.3
+
     length_1 = np.linalg.norm(point_2 - point_1)
     length_2 = np.linalg.norm(point_2 - point_3)
     length_3 = np.linalg.norm(point_2 - point_4)
+    length_4 = length_2 * leverage
 
     # initial directors
     direction_1 = (point_2 - point_1) / np.linalg.norm(point_2 - point_1)
     direction_2 = (point_2 - point_3) / np.linalg.norm(point_2 - point_3)
     direction_3 = (point_2 - point_4) / np.linalg.norm(point_2 - point_4)
+    direction_4 = -direction_2
     normal = np.array([0.0, 0.0, 1.0])
 
     hinge_axis = np.array([0.0, 0.0, 1.0])
@@ -119,10 +126,22 @@ def run_sim(r1, r2, r3, x1, y1, x3, y3, x4, y4, do_plots=False,):
         youngs_modulus=E,
         shear_modulus=shear_modulus,
     )
+    rod_4 = ea.CosseratRod.straight_rod(
+        n_elem,
+        point_4,
+        direction_4,
+        normal,
+        length_4,
+        radius_4,
+        density,
+        youngs_modulus=E,
+        shear_modulus=shear_modulus,
+    )
 
     preload_sim.append(rod_1)
     preload_sim.append(rod_2)
     if (third_rod): preload_sim.append(rod_3)
+    if (fourth_rod): preload_sim.append(rod_4)
 
     preload_sim.dampen(rod_1).using(
         ea.AnalyticalLinearDamper,
@@ -139,19 +158,25 @@ def run_sim(r1, r2, r3, x1, y1, x3, y3, x4, y4, do_plots=False,):
         damping_constant=preload_damping_constant,
         time_step=preload_time_step,
     )
+    if (fourth_rod): preload_sim.dampen(rod_4).using(
+        ea.AnalyticalLinearDamper,
+        damping_constant=preload_damping_constant,
+        time_step=preload_time_step,
+    )
 
     preload_sim.add_forcing_to(rod_1).using(ea.EndpointForces, 0.0 * preload_force, preload_force, ramp_up_time=0.2)
 
     if (orientation_boundary_condition):
-        preload_sim.constrain(rod_1).using(ea.FixedConstraint, constrained_position_idx=(0,), constrained_director_idx=(0,-1))
-        preload_sim.constrain(rod_2).using(ea.FixedConstraint, constrained_position_idx=(0,), constrained_director_idx=(0,-1))
+        preload_sim.constrain(rod_1).using(
+            ea.FixedConstraint, constrained_position_idx=(0,), constrained_director_idx=(0,-1))
+        preload_sim.constrain(rod_2).using(
+            ea.FixedConstraint, constrained_position_idx=(0,), constrained_director_idx=(0,-1))
         if (third_rod): preload_sim.constrain(rod_3).using(
             ea.FixedConstraint, constrained_position_idx=(0,), constrained_director_idx=(0,-1))
     else:
         preload_sim.constrain(rod_1).using(ea.FixedConstraint, constrained_position_idx=(0,))
         preload_sim.constrain(rod_2).using(ea.FixedConstraint, constrained_position_idx=(0,))
-        if (third_rod): preload_sim.constrain(rod_3).using(
-            ea.FixedConstraint, constrained_position_idx=(0,))
+        if (third_rod): preload_sim.constrain(rod_3).using(ea.FixedConstraint, constrained_position_idx=(0,))
 
     preload_sim.connect(
         first_rod=rod_1, second_rod=rod_2, first_connect_idx=-1, second_connect_idx=-1
