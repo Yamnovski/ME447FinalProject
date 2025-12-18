@@ -12,7 +12,7 @@ import shutil
 
 MAIN_DIR = os.getcwd() 
 
-orientation_boundary_condition = True
+orientation_boundary_condition = False
 
 def objective(x):
     r1, r2, r3, rod_4_stiff, preload, p1x, p1y, p3x, p3y, p4x, p4y = x
@@ -31,8 +31,8 @@ def objective(x):
     return score
 
 
-x0 = np.array([5.95077, 5.43655, 9.37571, 8.0, 4.0, -54.17448, -5.82995, 54.31005, -21.82463, -77.13239, -15.56851])
-sigma0 = 2.0
+x0 = np.array([5.95077, 5.43655, 9.37571, 4.0, 0.5, -54.17448, -5.82995, 54.31005, -21.82463, -77.13239, -15.56851])
+sigma0 = 0.5
 popsize = 10
 es = cma.CMAEvolutionStrategy(x0, sigma0, {"popsize":popsize, "maxiter":40})
 num_cores = os.cpu_count()  # e.g., 8

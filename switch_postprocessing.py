@@ -259,7 +259,7 @@ def fitness(
     displacement = ref_y - position_of_rod1[:, 1, -1]
 
     dx = displacement[1:] - displacement[:-1]
-    error = 0.5 * (np.abs(force - target_force(displacement))[1:] + np.abs(force - target_force(displacement))[:-1])
+    error = 0.5 * (np.abs(force - target_force(displacement - displacement[0]))[1:] + np.abs(force - target_force(displacement - displacement[0]))[:-1])
 
     score = np.sum(error * dx)
 

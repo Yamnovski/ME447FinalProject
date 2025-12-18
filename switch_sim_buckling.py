@@ -63,7 +63,7 @@ def run_sim(r1, r2, r3, rod_4_stiff, preload, x1, y1, x3, y3, x4, y4, orientatio
     point_3 = np.array([x3, y3, 0.0]) * mm # TODO optimize this (x and y only)
     point_4 = np.array([x4, y4, 0.0]) * mm # TODO optimize this (x and y only)
 
-    point_5 = np.array([0.0, -37.0, 0.0]) * mm # this only affects the visual indication of where the buckle rod is
+    point_5 = np.array([0.0, -35.5, 0.0]) * mm # this only affects the visual indication of where the buckle rod is
 
     density = 80000 # kg/m^3 
     # ^ this is not physically accurate, but it shouldn't matter much for quasi-static simulation, and it prevents blowing up
@@ -82,7 +82,7 @@ def run_sim(r1, r2, r3, rod_4_stiff, preload, x1, y1, x3, y3, x4, y4, orientatio
     n_node = n_elem + 1
 
     velocity_target=np.array([0.0, -max_displacement/final_time, 0.0])
-    preload_force = np.array([0.0, -np.clip(preload / 10, min=0.2, max=0.5), 0.0]) # sigma adjustment factor for preload
+    preload_force = np.array([0.0, -np.clip(preload / 10, min=0.0, max=0.5), 0.0]) # sigma adjustment factor for preload
 
     length_1 = np.linalg.norm(point_2 - point_1)
     length_2 = np.linalg.norm(point_2 - point_3)
